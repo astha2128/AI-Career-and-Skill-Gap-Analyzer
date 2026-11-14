@@ -33,7 +33,8 @@ DATA_PATH = BASE_DIR / "data" / "indian_tech_career_intelligence_2026.csv"
 
 @st.cache_data
 def load_dataset(path):
-    return pd.read_csv(path)
+    
+    return pd.read_csv(path, engine="python")
 
 try:
     df = load_dataset(str(DATA_PATH))
