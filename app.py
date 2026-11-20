@@ -2061,7 +2061,7 @@ elif page == "Dataset Preview":
             .astype(str)
             .str.contains(search_text, case=False, na=False)
         ]
-        
+
     # SMART DATASET FILTERS
 
     st.subheader("🎛️ Filter Job Postings")
@@ -2076,33 +2076,75 @@ elif page == "Dataset Preview":
 
     selected_filters = {}
 
-    for column, (label, data_column) in enumerate(
-        filter_options.items()
-    ):
+    # Clean invalid values before creating dropdown options
+    for column, data_column in filter_options.items():
 
-        if data_column in filtered_df.columns:
+        if data_column not in filtered_df.columns:
+            continue
 
-            options = sorted(
-                filtered_df[data_column]
-                .dropna()
-                .astype(str)
-                .unique()
-                .tolist()
+        clean_values = (
+            filtered_df[data_column]
+            .dropna()
+            .astype(str)
+            .str.strip()
+        )
+
+        clean_values = clean_values[
+            (clean_values != "") &
+            (clean_values.str.lower() != "nan")
+        ]
+
+        if column == "Country":
+            clean_values = clean_values[
+                clean_values.str.fullmatch(r"[A-Za-z][A-Za-z .'-]*")
+            ]
+
+        elif column == "Work Mode":
+            valid_modes = {
+                "remote": "Remote",
+                "hybrid": "Hybrid",
+                "on-site": "On-site",
+                "onsite": "On-site"
+            }
+
+            clean_values = clean_values.str.lower().map(valid_modes)
+            clean_values = clean_values.dropna()
+
+        options = sorted(clean_values.unique().tolist())
+
+        with [filter_col1, filter_col2, filter_col3][
+            list(filter_options.keys()).index(column)
+        ]:
+
+            selected_filters[data_column] = st.selectbox(
+                column,
+                ["All"] + options,
+                key=f"dataset_filter_{data_column}"
             )
 
-            with [filter_col1, filter_col2, filter_col3][column]:
-                selected_filters[data_column] = st.selectbox(
-                    label,
-                    ["All"] + options,
-                    key=f"dataset_filter_{data_column}"
-                )
-
+    # Apply selected filters
     for data_column, selected_value in selected_filters.items():
 
         if selected_value != "All":
-            filtered_df = filtered_df[
-                filtered_df[data_column].astype(str) == selected_value
-            ]
+
+            if data_column == "work_mode":
+                filtered_df = filtered_df[
+                    filtered_df[data_column]
+                    .fillna("")
+                    .astype(str)
+                    .str.strip()
+                    .str.lower()
+                    .replace({"onsite": "on-site"}) == selected_value.lower()
+                ]
+
+            else:
+                filtered_df = filtered_df[
+                    filtered_df[data_column]
+                    .fillna("")
+                    .astype(str)
+                    .str.strip() == selected_value
+                ]
+
 
 
     st.caption(
