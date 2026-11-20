@@ -8,6 +8,7 @@ from pypdf import PdfReader
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
+import plotly.express as px
 
 # ---------------- PAGE SETTINGS ----------------
 # ---------------- PAGE SETTINGS ----------------
@@ -707,12 +708,12 @@ with st.sidebar:
     page = st.radio(
     "Select a page",
     [
-        "Dashboard",
-        "Career Analysis",
+        "Career Dashboard",
         "Learning Roadmap",
         "Career Comparison",
-        "Dataset Preview"
+        "Dataset Intelligence Center"
     ],
+    key="page_navigation",
     label_visibility="collapsed"
 )
 
@@ -836,7 +837,7 @@ st.divider()
 
 # ---------------- DASHBOARD PAGE ----------------
 
-if page == "Dashboard":
+if page == "Career Dashboard":
 
     # HEADER
     st.title("Your Career Workspace")
@@ -1158,58 +1159,6 @@ if page == "Dashboard":
 
 
    
-    # LEARNING ROADMAP
-    st.subheader("🚀 Your Learning Roadmap")
-    st.caption("A priority-based path to build the skills your target career requires.")
-
-    if st.session_state.analysis is None:
-
-        with st.container(border=True):
-            st.info(
-                "Analyze your skills to generate your personalized learning roadmap."
-            )
-
-    else:
-        missing_skills = analysis["ordered_missing"]
-
-        if missing_skills:
-            total_missing = len(missing_skills)
-
-            st.write(f"**{total_missing} skills remaining to learn**")
-
-            stage1, stage2, stage3 = st.columns(3)
-
-            with stage1:
-                with st.container(border=True):
-                    st.caption("STAGE 01")
-                    st.subheader("🔴 High Priority")
-
-                    for skill in missing_skills[:3]:
-                        st.write(f"📌 {skill.title()}")
-
-            with stage2:
-                with st.container(border=True):
-                    st.caption("STAGE 02")
-                    st.subheader("🟡 Next Skills")
-
-                    for skill in missing_skills[3:6]:
-                        st.write(f"📌 {skill.title()}")
-
-            with stage3:
-                with st.container(border=True):
-                    st.caption("STAGE 03")
-                    st.subheader("🟢 Remaining")
-
-                    for skill in missing_skills[6:]:
-                        st.write(f"📌 {skill.title()}")
-
-        else:
-            with st.container(border=True):
-                st.success(
-                    "Excellent! All skills in this career checklist are matched."
-                )
-
-    st.divider()
 
 
     # PROFILE SUMMARY
@@ -1270,7 +1219,7 @@ if page == "Dashboard":
                     key="explore_analysis",
                     use_container_width=True,
                     on_click=navigate_to,
-                    args=("Career Analysis",)
+                    args=("Learning Roadmap",)
 
                     )
                 
@@ -1287,7 +1236,7 @@ if page == "Dashboard":
                     key="explore_roadmap",
                     use_container_width=True,
                     on_click=navigate_to,
-                    args=("Career Analysis",)
+                    args=("Career Dashboard",)
                 )
               
         with feature_col2:
@@ -1298,13 +1247,16 @@ if page == "Dashboard":
                     "Explore and compare different career paths "
                     "based on their required skills."
                 )
-                if st.button(
+                st.button(
+
+
                     "Compare Careers →",
                     key="explore_comparison",
-                    use_container_width=True
-                ):
-                    st.session_state.page_navigation = "Career Comparison"
-                    st.rerun()
+                    use_container_width=True,
+                    on_click=navigate_to,
+                    args=("Career Comparison",)
+
+                    )
 
             with st.container(border=True):
                 st.caption("04 • CAREER REPORT")
@@ -1327,7 +1279,7 @@ if page == "Dashboard":
 
 
 # ---------------- CAREER ANALYSIS PAGE ----------------
-elif page == "Career Analysis":
+if page == "Career Dashboard":
     st.subheader("📊 Your Career Skill Gap Analysis")
 
     if st.session_state.analysis is None:
@@ -1679,55 +1631,7 @@ elif page == "Career Analysis":
             "of job readiness."
         )
 
-        
-    # ---------------- DATASET QUALITY ANALYSIS ----------------
-    st.divider()
-    st.subheader("🔍 Dataset Quality Analysis")
-
-    total_rows = len(df)
-    total_columns = len(df.columns)
-    duplicate_rows = int(df.duplicated().sum())
-    missing_cells = int(df.isna().sum().sum())
-    unique_job_titles = (
-        df["job_title"].nunique()
-        if "job_title" in df.columns
-        else 0
-    )
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Rows", f"{total_rows:,}")
-    col2.metric("Total Columns", total_columns)
-    col3.metric("Duplicate Rows", f"{duplicate_rows:,}")
-
-    col4, col5 = st.columns(2)
-    col4.metric("Missing Cells", f"{missing_cells:,}")
-    col5.metric("Unique Job Titles", f"{unique_job_titles:,}")
-
-    st.subheader("📋 Missing Values by Column")
-
-    missing_report = df.isna().sum().reset_index()
-    missing_report.columns = ["Column", "Missing Values"]
-    missing_report = missing_report.sort_values(
-        "Missing Values", ascending=False
-    )
-
-    st.dataframe(
-        missing_report,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.subheader("🧹 Data Quality Summary")
-
-    if duplicate_rows == 0 and missing_cells == 0:
-        st.success("No duplicate rows or missing values found.")
-    else:
-        st.info(
-            f"Dataset mein {duplicate_rows:,} duplicate rows "
-            f"aur {missing_cells:,} missing cells hain. "
-            "Abhi ye report hai; original dataset delete ya modify "
-            "nahi kiya ja raha hai."
-        )
+      
         # ---------------- CAREER COMPARISON PAGE ----------------
 
 # ---------------- LEARNING ROADMAP PAGE ----------------
@@ -1975,10 +1879,36 @@ elif page == "Career Comparison":
             ["Match Percentage"]
         ]
 
-        st.bar_chart(
+
+        fig = px.bar(
+
+
             chart_df,
-            horizontal=True
-        )
+            x=chart_df.columns[0],
+            y=chart_df.index,
+            orientation="h",
+            title="Career Skill Comparison",
+            color=chart_df.columns[0],
+            color_continuous_scale="Blues",
+            text_auto=True
+
+            )
+
+        fig.update_layout(
+            xaxis_title="Skill Match (%)",
+            yaxis_title="Career",
+            template="plotly_white",
+            height=450,
+            showlegend=False
+            )
+
+
+        st.plotly_chart(
+
+
+            fig,
+            use_container_width=True
+            )
 
         # FINAL RECOMMENDATION
 
@@ -2003,7 +1933,7 @@ elif page == "Career Comparison":
             "Note: This score is based on a basic skill checklist. "
             "It does not guarantee career suitability or job selection."
         )
-elif page == "Dataset Preview":        
+elif page == "Dataset Intelligence Center":        
 
     # ---------------- DATASET PREVIEW PAGE ----------------
 
@@ -2398,3 +2328,52 @@ elif page == "Dataset Preview":
             "The dataset must contain job_title and skills_extracted columns."
         )
 
+  
+    # ---------------- DATASET QUALITY ANALYSIS ----------------
+    st.divider()
+    st.subheader("🔍 Dataset Quality Analysis")
+
+    total_rows = len(df)
+    total_columns = len(df.columns)
+    duplicate_rows = int(df.duplicated().sum())
+    missing_cells = int(df.isna().sum().sum())
+    unique_job_titles = (
+        df["job_title"].nunique()
+        if "job_title" in df.columns
+        else 0
+    )
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Rows", f"{total_rows:,}")
+    col2.metric("Total Columns", total_columns)
+    col3.metric("Duplicate Rows", f"{duplicate_rows:,}")
+
+    col4, col5 = st.columns(2)
+    col4.metric("Missing Cells", f"{missing_cells:,}")
+    col5.metric("Unique Job Titles", f"{unique_job_titles:,}")
+
+    st.subheader("📋 Missing Values by Column")
+
+    missing_report = df.isna().sum().reset_index()
+    missing_report.columns = ["Column", "Missing Values"]
+    missing_report = missing_report.sort_values(
+        "Missing Values", ascending=False
+    )
+
+    st.dataframe(
+        missing_report,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.subheader("🧹 Data Quality Summary")
+
+    if duplicate_rows == 0 and missing_cells == 0:
+        st.success("No duplicate rows or missing values found.")
+    else:
+        st.info(
+            f"Dataset mein {duplicate_rows:,} duplicate rows "
+            f"aur {missing_cells:,} missing cells hain. "
+            "Abhi ye report hai; original dataset delete ya modify "
+            "nahi kiya ja raha hai."
+        )

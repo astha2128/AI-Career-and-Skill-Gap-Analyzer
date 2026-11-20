@@ -5,3 +5,6 @@ numpy
 matplotlib
 pypdf
 scikit-learn
+plotly
+streamlit-option-menu
+streamlit-extras
