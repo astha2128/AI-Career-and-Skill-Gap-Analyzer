@@ -9,6 +9,23 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
 import plotly.express as px
+import pytesseract
+import fitz
+from PIL import Image
+import io
+import os
+import shutil
+
+tesseract_path = shutil.which("tesseract")
+
+if tesseract_path:
+    pytesseract.pytesseract.tesseract_cmd = tesseract_path
+elif os.name == "nt":
+    pytesseract.pytesseract.tesseract_cmd = (
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+       
+    )
+
 
 # ---------------- PAGE SETTINGS ----------------
 # ---------------- PAGE SETTINGS ----------------
@@ -244,6 +261,46 @@ def extract_skills_from_cv(cv_text):
             found_skills.add(skill)
 
     return found_skills
+
+def extract_text_from_pdf(uploaded_file):
+    """Extract text from normal and scanned PDF resumes."""
+
+    pdf_bytes = uploaded_file.getvalue()
+    pdf_document = fitz.open(
+        stream=pdf_bytes,
+        filetype="pdf"
+    )
+
+    extracted_pages = []
+
+    for page in pdf_document:
+        # First try normal PDF text extraction
+        page_text = page.get_text("text").strip()
+
+        # If no text is found, use OCR
+        if not page_text:
+            pix = page.get_pixmap(
+                matrix=fitz.Matrix(2, 2),
+                alpha=False
+            )
+
+            image = Image.frombytes(
+                "RGB",
+                [pix.width, pix.height],
+                pix.samples
+            )
+
+            page_text = pytesseract.image_to_string(
+                image,
+                lang="eng"
+            ).strip()
+
+        extracted_pages.append(page_text)
+
+    pdf_document.close()
+
+    return "\n".join(extracted_pages)
+
 
 
 
@@ -996,75 +1053,64 @@ if page == "Career Dashboard":
             st.write("🔍 Identify skills from your resume")
             st.write("👤 Detect your name when available")
             st.write("🎯 Help you use detected skills in your profile")
+        
+    if uploaded_cv is not None:
 
-        if uploaded_cv is not None:
-            try:
-                pdf_reader = PdfReader(uploaded_cv)
 
-                cv_text = "\n".join(
-                    pdf_page.extract_text() or ""
-                    for pdf_page in pdf_reader.pages
-                )
+        try:
+            cv_text = extract_text_from_pdf(uploaded_cv)
 
-                if cv_text.strip():
-                    extracted_name = extract_name_from_cv(cv_text)
-                    extracted_skills = extract_skills_from_cv(cv_text)
+            if cv_text.strip():
+                extracted_name = extract_name_from_cv(cv_text)
+                extracted_skills = extract_skills_from_cv(cv_text)
 
-                    st.session_state.cv_name = extracted_name
-                    st.session_state.cv_skills = extracted_skills
+                st.session_state.cv_name = extracted_name
+                st.session_state.cv_skills = extracted_skills
 
-                    st.divider()
-                    st.markdown("#### Resume Analysis Results")
+                st.divider()
+                st.markdown("#### Resume Analysis Results")
 
-                    result_col1, result_col2 = st.columns(2)
+                result_col1, result_col2 = st.columns(2)
 
-                    with result_col1:
-                        st.metric(
-                            "Skills Detected",
-                            len(extracted_skills)
-                        )
+                with result_col1:
+                    st.metric("Skills Detected", len(extracted_skills))
 
-                    with result_col2:
-                        st.metric(
-                            "Name Detected",
-                            "Yes" if extracted_name else "Not found"
-                        )
-
-                    if extracted_skills:
-                        st.success("Resume skills detected successfully!")
-
-                        st.write("**Your detected skills:**")
-                        st.write(
-                            " • ".join(sorted(extracted_skills))
-                        )
-
-                        st.button(
-                            "Use CV Name and Skills in My Profile",
-                            on_click=apply_cv_skills,
-                            key="apply_cv_skills"
-                        )
-
-                    else:
-                        st.warning(
-                            "No skills from our current skill list were found."
-                        )
-
-                    with st.expander("View Extracted Resume Text"):
-                        st.text_area(
-                            "Resume content",
-                            cv_text,
-                            height=200,
-                            disabled=True
-                        )
-
-                else:
-                    st.warning(
-                        "Text could not be extracted. "
-                        "This PDF may be scanned or image-based."
+                with result_col2:
+                    st.metric(
+                        "Name Detected",
+                        "Yes" if extracted_name else "Not found"
                     )
 
-            except Exception as e:
-                st.error(f"Could not read the PDF: {e}")
+                if extracted_skills:
+                    st.success("Resume skills detected successfully!")
+                    st.write("**Your detected skills:**")
+                    st.write(" • ".join(sorted(extracted_skills)))
+
+                    st.button(
+                        "Use CV Name and Skills in My Profile",
+                        on_click=apply_cv_skills,
+                        key="apply_cv_skills"
+                    )
+                else:
+                    st.warning(
+                        "No skills from our current skill list were found."
+                    )
+
+                with st.expander("View Extracted Resume Text"):
+                    st.text_area(
+                        "Resume content",
+                        cv_text,
+                        height=200,
+                        disabled=True
+                    )
+
+            else:
+                st.warning("No readable text found in this PDF.")
+
+        except Exception as e:
+            st.error(f"Could not read the PDF: {e}") 
+
+        
 
     st.divider()
 
